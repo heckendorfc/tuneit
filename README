@@ -3,7 +3,7 @@ tuneit -- A simple command-line instrument tuner for OSS, ALSA and JACK
 
 Introduction:
 
-Tune-It is a very simple command-line based instrument tuner for Linux.
+Tune-It is a very simple command-line based instrument tuner.
 
 It uses two different algorithms for pitch detection.  By default,
 a simple and fast Schmitt Trigger based algorithm is used to detect
