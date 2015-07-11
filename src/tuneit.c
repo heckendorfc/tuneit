@@ -5,11 +5,11 @@
  * GNU General Public License, as published by the Free Software Foundation.
  * Please see the file COPYING for details.
  */
-#include "config.h"
 
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 static unsigned int rate = 48000;
 
@@ -21,7 +21,7 @@ static unsigned int rate = 48000;
 #define LOG_D_NOTE      0.057762265047
 /* pow(2.0,1.0/24.0) == 50 cents */
 #define D_NOTE_SQRT     1.029302236643
-/* log(2) */ 
+/* log(2) */
 #define LOG_2           0.693147180559
 
 static double freqs[12];
@@ -29,7 +29,7 @@ static double lfreqs[12];
 
 static const char *englishNotes[12] = {"A","A#","B","C","C#","D","D#","E","F","F#", "G", "G#"};
 static const char *germanNotes[12] = {"A","A#","H","C","C#","D","D#","E","F","F#", "G", "G#"};
-static const char *frenchNotes[12] = {"La","La#","Si","Do","Do#","Ré","Ré#",
+static const char *frenchNotes[12] = {"La","La#","Si","Do","Do#","Re","Re#",
 				 "Mi","Fa","Fa#","Sol","Sol#"};
 static const char **notes = englishNotes;
 
@@ -313,6 +313,7 @@ typedef struct {
 } AudioInterface;
 static const AudioInterface *audio = NULL;
 
+#ifdef USE_ALSA
 #include <alsa/asoundlib.h>
 
 static snd_pcm_t *alsaHandle;
@@ -341,7 +342,7 @@ alsaListPorts ()
     snd_ctl_t *ctlHandle;
     char str[128];
     int result;
-    
+
     sprintf(str, "hw:CARD=%i", cardIndex);
     if ((result = snd_ctl_open(&ctlHandle, str, 0)) >= 0) {
       if ((result = snd_ctl_card_info(ctlHandle, info)) >= 0) {
@@ -442,7 +443,9 @@ alsaFree ()
 static const AudioInterface alsaInterface = {
   alsaInit, alsaListPorts, alsaOpen, alsaRun, alsaClose, alsaFree
 };
+#endif
 
+#ifdef USE_JACK
 #include <jack/jack.h>
 #include <jack/ringbuffer.h>
 
@@ -577,6 +580,77 @@ jackFree ()
 static const AudioInterface jackInterface = {
   jackInit, jackListPorts, jackOpen, jackRun, jackClose, jackFree
 };
+#endif
+
+#ifdef USE_OSS
+#include <sys/soundcard.h>
+#include <sys/fcntl.h>
+#include <sys/ioctl.h>
+
+#include <errno.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#if SOUND_VERSION >= 0x040000
+#define OSSV4_DEFS
+#else
+#undef OSSV4_DEFS
+#endif
+
+int oss_sndfd;
+
+static void ossInit(){
+}
+
+static void ossListPorts(){
+}
+
+static void ossOpen(char *capDev){
+	int oss_enc=AFMT_S16_NE;
+	int channels=1;
+
+	if((oss_sndfd=open(capDev?capDev:"/dev/dsp",O_RDONLY,777))==-1)
+		exit(1);
+
+	if(ioctl(oss_sndfd,SNDCTL_DSP_RESET,NULL)<0){
+		fprintf(stderr,"reset errno:%d\n",errno);
+		errno=0;
+	}
+	if(ioctl(oss_sndfd,SNDCTL_DSP_SETFMT,&oss_enc)<0){
+		fprintf(stderr,"fmt errno:%d\n",errno);
+		errno=0;
+	}
+	if(ioctl(oss_sndfd,SNDCTL_DSP_CHANNELS,&channels)<0){
+		fprintf(stderr,"ch errno:%d\n",errno);
+		errno=0;
+	}
+	if(ioctl(oss_sndfd,SNDCTL_DSP_SPEED,&rate)<0){
+		fprintf(stderr,"rate errno:%d\n",errno);
+		errno=0;
+	}
+}
+
+static void ossRun(){
+	int nframe=0;
+	signed short int buf[4096];
+
+	while((nframe=read(oss_sndfd,buf,512))>0){
+		algorithm->measures16(nframe/2,buf);
+	}
+}
+
+static void ossClose(){
+	close(oss_sndfd);
+}
+
+static void ossFree(){
+}
+
+static const AudioInterface ossInterface = {
+  ossInit, ossListPorts, ossOpen, ossRun, ossClose, ossFree
+};
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -585,9 +659,19 @@ int main(int argc, char *argv[])
   int listAndExit = 0, latency = 10;
   int c;
 
+#if defined(USE_ALSA)
   audio = &alsaInterface;
+#elif defined(USE_JACK)
+  audio = &jackInterface;
+#elif defined(USE_OSS)
+  audio = &ossInterface;
+#else
+  fprintf(stderr,"Error: No sound system support.");
+  exit(1);
+#endif
+
   algorithm = &schmittTriggerAlgorithm;
-  while ((c = getopt(argc, argv, "fijl:r:t:")) != -1) {
+  while ((c = getopt(argc, argv, "afijol:r:t:")) != -1) {
     switch (c) {
       case 'f':
 	algorithm = &fftAlgorithm;
@@ -595,8 +679,29 @@ int main(int argc, char *argv[])
       case 'i':
 	listAndExit = 1;
 	break;
+      case 'a':
+#ifdef USE_ALSA
+	audio = &alsaInterface;
+#else
+	fprintf(stderr,"Error: Compiled without ALSA support.\n");
+	exit(1);
+#endif
+	break;
       case 'j':
+#ifdef USE_JACK
 	audio = &jackInterface;
+#else
+	fprintf(stderr,"Error: Compiled without JACK support.\n");
+	exit(1);
+#endif
+	break;
+      case 'o':
+#ifdef USE_OSS
+	audio = &ossInterface;
+#else
+	fprintf(stderr,"Error: Compiled without OSS support.\n");
+	exit(1);
+#endif
 	break;
       case 'l':
 	latency = atoi(optarg);
@@ -612,7 +717,9 @@ int main(int argc, char *argv[])
 	fprintf(stderr, "Valid options:\n");
 	fprintf(stderr, "\t-f\t\tUse the more CPU intensive FFT based algorithm\n");
 	fprintf(stderr, "\t-i\t\tList available input ports and exit\n");
+	fprintf(stderr, "\t-a\t\tUse ALSA as the audio transport system\n");
 	fprintf(stderr, "\t-j\t\tUse JACK as the audio transport system\n");
+	fprintf(stderr, "\t-o\t\tUse OSS as the audio transport system\n");
 	fprintf(stderr, "\t-l LATENCY\tMeasurement window size in 1/N seconds (default is 10)\n");
 	fprintf(stderr, "\t-r RATE\t\tSet sample rate (default is 48000)\n");
 	fprintf(stderr, "\t-t HERTZ\tTune the A note of the scale (default is 440.0)\n");

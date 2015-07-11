@@ -6,41 +6,45 @@ tuneit \- Simple command line instrument tuner
 .RI [ options ]
 .I captureDevice
 .SH DESCRIPTION
-\fBtuneit\fP plays Vorbis and MPEG audio files while allowing the user
-to choose a new tempo without changing the pitch.
+\fBtuneit\fP Tune-It is a very simple command-line based instrument tuner.
 .PP
-The tempo can be interactively controlled by pressing '+' or '-', incrementing
-and decrementing the playback tempo by 1 percent respectively.
-Use "q" to stop playback.
+It uses two different algorithms for pitch detection.  By default,
+a simple and fast Schmitt Trigger based algorithm is used to detect
+the fundamental frequency of an instrument.  For better and more reliable
+results, there is an alternative FFT based algorithm which is much more CPU
+intensive.
 .SH OPTIONS
 \fByatm\fP accepts the following options:
 .TP
-.BR  -b
-Begin playing at
-.IR time ,
-given as an offset from the beginning of the file
-.RB ( 0:00:00 ).
+\fB-f\fP
+Use the more CPU intensive FFT based algorithm
 .TP
-.BR  -e
-Stop after
-.IR duration
-seconds of audio have been decoded.
+\fB-i\fP
+List available input ports and exit
 .TP
-.BR  -t
-Specify initial tempo as a floating point value, 1.0 is the default.
+\fB-a\fP
+Use ALSA as the audio transport system
 .TP
-.BR  -q
-Inhibit usual output.
+\fB-j\fP
+Use JACK as the audio transport system
 .TP
-.B  -v, --verbose
-Print more information.
+\fB-o\fP
+Use OSS as the audio transport system
 .TP
-.B \-h, \-\-help
-Show summary of options.
+\fB-l\fP \fILATENCY\fR
 .TP
-.B \-V, \-\-version
-Show version of program.
+Measurement window size in 1/N seconds (default is 10)
+.TP
+\fB-r\fP \fIRATE\fR
+.TP
+Set desired ALSA sample rate (default is 48000)
+.TP
+\fB-t\fP \fIHERTZ\fR
+.TP
+Tune the A note of the scale (default is 440.0)
 .SH "SEE ALSO"
-.BR jackd (1), amixer (1). 
-.SH AUTHOR
-Mario Lang <mlang@delysid.org>.
+.BR jackd (1), amixer (1), mixer(1). 
+.SH AUTHORS
+Mario Lang <mlang@delysid.org>
+.TP
+Christian Heckendorf <heckendorfc@gmail.com>

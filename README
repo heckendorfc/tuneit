@@ -1,5 +1,5 @@
-tuneit -- A simple command-line instrument tuner for ALSA and JACK
-------------------------------------------------------------------
+tuneit -- A simple command-line instrument tuner for OSS, ALSA and JACK
+-----------------------------------------------------------------------
 
 Introduction:
 
@@ -11,8 +11,16 @@ the fundamental frequency of an instrument.  For better and more reliable
 results, there is an alternative FFT based algorithm which is much more CPU
 intensive.
 
-As audio capture backends ALSA and JACK are supported.  By default, tuneit
-will try to use the hw:0,0 ALSA device.
+As audio capture backends OSS, ALSA and JACK are supported.  By default,
+tuneit will try to use the hw:0,0 ALSA device.
+
+To build/install:
+	mkdir build
+	cd build
+	cmake ..
+	make
+	make install
+
 
 Options:
 
@@ -20,10 +28,11 @@ tuneit [OPTIONS...] [captureDevice]
 Valid options:
 	-f		Use the more CPU intensive FFT based algorithm
 	-i		List available input ports and exit
+	-o		Use OSS as the audio transport system
+	-a		Use ALSA as the audio transport system
 	-j		Use JACK as the audio transport system
 	-l LATENCY	Measurement window size in 1/N seconds (default is 10)
 	-r RATE		Set desired ALSA sample rate (default is 48000)
 	-t HERTZ	Tune the A note of the scale (default is 440.0)
 
  -- Mario Lang <mlang@delysid.org>
-
